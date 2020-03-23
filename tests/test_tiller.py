@@ -43,7 +43,7 @@ class TestTiller(TestCase):
             dotify({'next': '', 'releases': ['foo']})
         ]
         r = tiller.Tiller('test').list_releases()
-        mock_list_release_request.assert_called_with(limit=tiller.RELEASE_LIMIT, offset=None, namespace="", status_codes=[])
+        mock_list_release_request.assert_called_with(limit=tiller.RELEASE_LIMIT, offset=None, filter="", namespace="", status_codes=[])
         mock_release_service_stub.return_value.ListReleases.assert_called()
         self.assertEqual(len(r), 1)
         self.assertEqual(r[0], 'foo')
@@ -56,7 +56,7 @@ class TestTiller(TestCase):
             dotify({'next': '', 'releases': ['foo']})
         ]
         r = tiller.Tiller('test').list_releases(namespace="test")
-        mock_list_release_request.assert_called_with(limit=tiller.RELEASE_LIMIT, offset=None, namespace="test", status_codes=[])
+        mock_list_release_request.assert_called_with(limit=tiller.RELEASE_LIMIT, offset=None, filter="", namespace="test", status_codes=[])
         mock_release_service_stub.return_value.ListReleases.assert_called()
         self.assertEqual(len(r), 1)
         self.assertEqual(r[0], 'foo')
@@ -70,7 +70,7 @@ class TestTiller(TestCase):
         ]
         r = tiller.Tiller('test').list_releases(status_codes=["DEPLOYED", "FAILED"])
         # See status code enum definition in hapi/status_pb2.py
-        mock_list_release_request.assert_called_with(limit=tiller.RELEASE_LIMIT, offset=None, namespace="", status_codes=[1, 4])
+        mock_list_release_request.assert_called_with(limit=tiller.RELEASE_LIMIT, offset=None, filter="", namespace="", status_codes=[1, 4])
         mock_release_service_stub.return_value.ListReleases.assert_called()
         self.assertEqual(len(r), 1)
         self.assertEqual(r[0], 'foo')

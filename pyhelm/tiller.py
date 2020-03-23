@@ -85,7 +85,7 @@ class Tiller(object):
 
         return False
 
-    def list_releases(self, status_codes=None, namespace=""):
+    def list_releases(self, status_codes=None, filter="", namespace=""):
         """
         List Helm Releases
 
@@ -106,6 +106,7 @@ class Tiller(object):
         while True:
             req = ListReleasesRequest(limit=RELEASE_LIMIT,
                                       offset=offset,
+                                      filter=filter,
                                       namespace=namespace,
                                       status_codes=request_status_codes)
             release_list = stub.ListReleases(req, self._timeout,
