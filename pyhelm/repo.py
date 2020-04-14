@@ -5,7 +5,7 @@ import requests
 import shutil
 import tarfile
 import tempfile
-import yaml
+import ruamel.yaml as yaml
 try:
     from urllib.parse import urlparse
 except ImportError:

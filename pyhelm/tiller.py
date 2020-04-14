@@ -1,5 +1,5 @@
 import grpc
-import yaml
+import ruamel.yaml as yaml
 import pyhelm.logger as logger
 
 from hapi.services.tiller_pb2 import ListReleasesRequest, \

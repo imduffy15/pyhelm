@@ -6,7 +6,7 @@ except ImportError:
     import mock
 
 import os
-import yaml
+import ruamel.yaml as yaml
 import requests
 import pyhelm.repo as repo
 from botocore.exceptions import ClientError

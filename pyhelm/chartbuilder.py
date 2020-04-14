@@ -1,6 +1,6 @@
 import pyhelm.logger as logger
 import os
-import yaml
+import ruamel.yaml as yaml
 import codecs
 
 from hapi.services.tiller_pb2 import GetReleaseContentRequest
