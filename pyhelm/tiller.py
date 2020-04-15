@@ -1,6 +1,7 @@
 import grpc
-import ruamel.yaml as yaml
+import ruamel.yaml
 import pyhelm.logger as logger
+import io
 
 from hapi.services.tiller_pb2 import ListReleasesRequest, \
     InstallReleaseRequest, UpdateReleaseRequest, UninstallReleaseRequest, \
@@ -19,6 +20,10 @@ GRPC_MAX_SEND_MESSAGE_LENGTH = 1024*1024*20
 GRPC_KEEPALIVE_TIME_MS = 90000
 GRPC_MIN_TIME_BETWEEN_PINGS_MS = 90000
 
+yaml = ruamel.yaml.YAML(typ='safe', pure=True)
+yaml.default_flow_style = False
+yaml.version = (1, 1)
+yaml.preserve_quotes = True
 
 class Tiller(object):
     """
@@ -171,7 +176,14 @@ class Tiller(object):
                 self._logger.warn("Namespace %s doesn't match with previous. Release will be deployed to %s",
                                   release_status.namespace, namespace)
 
-        values = Config(raw=yaml.safe_dump(values or {}))
+        if values:
+            f = io.StringIO()
+            yaml.dump(values, f)
+            f.seek(0)
+            raw = f.read()
+        else:
+            raw = ""
+        values = Config(raw=raw)
 
         release_request = UpdateReleaseRequest(
             chart=chart,
@@ -196,8 +208,14 @@ class Tiller(object):
         """
         Create a Helm Release
         """
-
-        values = Config(raw=yaml.safe_dump(values or {}))
+        if values:
+            f = io.StringIO()
+            yaml.dump(values, f)
+            f.seek(0)
+            raw = f.read()
+        else:
+            raw = ""
+        values = Config(raw=raw)
 
         stub = ReleaseServiceStub(self._channel)
         release_request = InstallReleaseRequest(

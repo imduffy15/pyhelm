@@ -6,10 +6,15 @@ except ImportError:
     import mock
 
 import os
-import ruamel.yaml as yaml
+import ruamel.yaml
 import requests
 import pyhelm.repo as repo
 from botocore.exceptions import ClientError
+
+yaml = ruamel.yaml.YAML(typ='safe', pure=True)
+yaml.default_flow_style = False
+yaml.version = (1, 1)
+yaml.preserve_quotes = True
 
 class TestRepo(TestCase):
     _http404 = requests.Response()
@@ -60,7 +65,7 @@ entries:
 
     @mock.patch('pyhelm.repo.tarfile.open', return_value=mock.Mock())
     @mock.patch('pyhelm.repo._get_from_repo', return_value='data')
-    @mock.patch('pyhelm.repo.repo_index', return_value=yaml.safe_load(_index))
+    @mock.patch('pyhelm.repo.repo_index', return_value=yaml.load(_index))
     @mock.patch('pyhelm.repo.tempfile.mkdtemp', return_value='/tmp/dir')
     def test_latest_version(self, _0, _1, _2, _3):
         r = repo.from_repo('http://test', 'foo')
@@ -68,7 +73,7 @@ entries:
 
     @mock.patch('pyhelm.repo.tarfile.open', return_value=mock.Mock())
     @mock.patch('pyhelm.repo._get_from_repo', return_value='data')
-    @mock.patch('pyhelm.repo.repo_index', return_value=yaml.safe_load(_index))
+    @mock.patch('pyhelm.repo.repo_index', return_value=yaml.load(_index))
     @mock.patch('pyhelm.repo.tempfile.mkdtemp', return_value='/tmp/dir')
     def test_specific_version(self, _0, _1, _2, _3):
         r = repo.from_repo('http://test', 'foo', version='0.1.2')

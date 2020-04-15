@@ -5,13 +5,17 @@ import requests
 import shutil
 import tarfile
 import tempfile
-import ruamel.yaml as yaml
+import ruamel.yaml
 try:
     from urllib.parse import urlparse
 except ImportError:
     from urlparse import urlparse
 from posixpath import join as urljoin # https://stackoverflow.com/a/15279799
 
+yaml = ruamel.yaml.YAML(typ='safe', pure=True)
+yaml.default_flow_style = False
+yaml.version = (1, 1)
+yaml.preserve_quotes = True
 
 class HTTPGetError(RuntimeError):
     def __init__(self, url, code, msg):
@@ -115,7 +119,7 @@ def repo_index(repo_url, headers=None):
     """Downloads the Chart's repo index"""
     repo_scheme = urlparse(repo_url).scheme
 
-    return yaml.safe_load(
+    return yaml.load(
         _get_from_repo(
             repo_scheme,
             repo_url,

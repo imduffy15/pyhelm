@@ -1,6 +1,6 @@
 import pyhelm.logger as logger
 import os
-import ruamel.yaml as yaml
+import ruamel.yaml
 import codecs
 
 from hapi.services.tiller_pb2 import GetReleaseContentRequest
@@ -14,6 +14,10 @@ from pyhelm import repo
 from collections import defaultdict
 from supermutes.dot import dotify
 
+yaml = ruamel.yaml.YAML(typ='safe', pure=True)
+yaml.default_flow_style = False
+yaml.version = (1, 1)
+yaml.preserve_quotes = True
 
 class ChartBuilder(object):
     '''
@@ -117,7 +121,7 @@ class ChartBuilder(object):
         Process metadata
         '''
         # extract Chart.yaml to construct metadata
-        chart_yaml = yaml.safe_load(ChartBuilder.read_file(os.path.join(self.source_directory, 'Chart.yaml')))
+        chart_yaml = yaml.load(ChartBuilder.read_file(os.path.join(self.source_directory, 'Chart.yaml')))
 
         if 'version' not in chart_yaml or \
            'name' not in chart_yaml:
