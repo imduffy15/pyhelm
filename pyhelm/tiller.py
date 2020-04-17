@@ -1,29 +1,29 @@
-import grpc
-import ruamel.yaml
-import pyhelm.logger as logger
 import io
 
-from hapi.services.tiller_pb2 import ListReleasesRequest, \
-    InstallReleaseRequest, UpdateReleaseRequest, UninstallReleaseRequest, \
-    GetReleaseStatusRequest, GetReleaseContentRequest
-from hapi.services.tiller_pb2_grpc import ReleaseServiceStub
+import grpc
+
+import pyhelm.logger as logger
 from hapi.chart.config_pb2 import Config
 from hapi.release.status_pb2 import _STATUS
+from hapi.services.tiller_pb2 import GetReleaseContentRequest
+from hapi.services.tiller_pb2 import GetReleaseStatusRequest
+from hapi.services.tiller_pb2 import InstallReleaseRequest
+from hapi.services.tiller_pb2 import ListReleasesRequest
+from hapi.services.tiller_pb2 import UninstallReleaseRequest
+from hapi.services.tiller_pb2 import UpdateReleaseRequest
+from hapi.services.tiller_pb2_grpc import ReleaseServiceStub
+from pyhelm.yaml import yaml
 
 TILLER_PORT = 44134
-TILLER_VERSION = b'2.14'
+TILLER_VERSION = b"2.14"
 TILLER_TIMEOUT = 300
 RELEASE_LIMIT = 32
 DEFAULT_NAMESPACE = "default"
-GRPC_MAX_RECEIVE_MESSAGE_LENGTH = 1024*1024*50
-GRPC_MAX_SEND_MESSAGE_LENGTH = 1024*1024*20
+GRPC_MAX_RECEIVE_MESSAGE_LENGTH = 1024 * 1024 * 50
+GRPC_MAX_SEND_MESSAGE_LENGTH = 1024 * 1024 * 20
 GRPC_KEEPALIVE_TIME_MS = 90000
 GRPC_MIN_TIME_BETWEEN_PINGS_MS = 90000
 
-yaml = ruamel.yaml.YAML(typ='safe', pure=True)
-yaml.default_flow_style = False
-yaml.version = (1, 1)
-yaml.preserve_quotes = True
 
 class Tiller(object):
     """
@@ -31,7 +31,7 @@ class Tiller(object):
     service over gRPC
     """
 
-    _logger = logger.get_logger('Tiller')
+    _logger = logger.get_logger("Tiller")
 
     def __init__(self, host, port=TILLER_PORT, timeout=TILLER_TIMEOUT, tls_config=None):
         # init k8s connectivity
@@ -50,14 +50,14 @@ class Tiller(object):
         """
         Return tiller metadata for requests
         """
-        return [(b'x-helm-api-client', TILLER_VERSION)]
+        return [(b"x-helm-api-client", TILLER_VERSION)]
 
     def get_channel(self):
         """
         Return a tiller channel
         """
 
-        target = '%s:%s' % (self._host, self._port)
+        target = "%s:%s" % (self._host, self._port)
 
         # Despite Helm sets grpc keep alive to 30 seconds, it handles grpc "too_many_pings" errors
         # which we don't want to handle. Setting it to 30 seconds will cause such an error at times.
@@ -67,14 +67,14 @@ class Tiller(object):
             ("grpc.http2.max_pings_without_data", 0),
             ("grpc.keepalive_permit_without_calls", 1),
             ("grpc.max_receive_message_length", GRPC_MAX_RECEIVE_MESSAGE_LENGTH),
-            ("grpc.max_send_message_length", GRPC_MAX_SEND_MESSAGE_LENGTH)
+            ("grpc.max_send_message_length", GRPC_MAX_SEND_MESSAGE_LENGTH),
         )
 
         if self._tls_config:
             ssl_channel_credentials = grpc.ssl_channel_credentials(
                 root_certificates=self._tls_config.ca_data,
                 private_key=self._tls_config.key_data,
-                certificate_chain=self._tls_config.cert_data
+                certificate_chain=self._tls_config.cert_data,
             )
 
             return grpc.secure_channel(target, ssl_channel_credentials, options=options)
@@ -101,7 +101,9 @@ class Tiller(object):
         # Convert the string status codes to the their numerical values
         if status_codes:
             codes_enum = _STATUS.enum_types_by_name.get("Code")
-            request_status_codes = [codes_enum.values_by_name.get(code).number for code in status_codes]
+            request_status_codes = [
+                codes_enum.values_by_name.get(code).number for code in status_codes
+            ]
         else:
             request_status_codes = []
 
@@ -109,13 +111,14 @@ class Tiller(object):
         stub = ReleaseServiceStub(self._channel)
 
         while True:
-            req = ListReleasesRequest(limit=RELEASE_LIMIT,
-                                      offset=offset,
-                                      filter=filter,
-                                      namespace=namespace,
-                                      status_codes=request_status_codes)
-            release_list = stub.ListReleases(req, self._timeout,
-                                             metadata=self.metadata)
+            req = ListReleasesRequest(
+                limit=RELEASE_LIMIT,
+                offset=offset,
+                filter=filter,
+                namespace=namespace,
+                status_codes=request_status_codes,
+            )
+            release_list = stub.ListReleases(req, self._timeout, metadata=self.metadata)
 
             for y in release_list:
                 offset = str(y.next)
@@ -138,18 +141,34 @@ class Tiller(object):
         charts = []
         for latest_release in self.list_releases():
             try:
-                charts.append((latest_release.name, latest_release.version,
-                               latest_release.chart,
-                               latest_release.config.raw))
+                charts.append(
+                    (
+                        latest_release.name,
+                        latest_release.version,
+                        latest_release.chart,
+                        latest_release.config.raw,
+                    )
+                )
             except IndexError:
                 continue
         return charts
 
-    def update_release(self, chart, namespace, dry_run=False,
-                       name=None, values=None, wait=False,
-                       disable_hooks=False, recreate=False,
-                       reset_values=False, reuse_values=False,
-                       force=False, description="", install=False):
+    def update_release(
+        self,
+        chart,
+        namespace,
+        dry_run=False,
+        name=None,
+        values=None,
+        wait=False,
+        disable_hooks=False,
+        recreate=False,
+        reset_values=False,
+        reuse_values=False,
+        force=False,
+        description="",
+        install=False,
+    ):
         """
         Update a Helm Release
         """
@@ -162,19 +181,24 @@ class Tiller(object):
             try:
                 release_status = self.get_release_status(name)
             except grpc.RpcError as rpc_error_call:
-                if not rpc_error_call.details() == "getting deployed release \"{}\": release: \"{}\" not found".format(name, name):
+                if not rpc_error_call.details() == 'getting deployed release "{}": release: "{}" not found'.format(
+                    name, name
+                ):
                     raise rpc_error_call
 
                 # The release doesn't exist - it's time to install
-                self._logger.info(
-                    "Release %s does not exist. Installing it now.", name)
+                self._logger.info("Release %s does not exist. Installing it now.", name)
 
-                return self.install_release(chart, namespace, dry_run,
-                                            name, values, wait)
+                return self.install_release(
+                    chart, namespace, dry_run, name, values, wait
+                )
 
             if release_status.namespace != namespace:
-                self._logger.warn("Namespace %s doesn't match with previous. Release will be deployed to %s",
-                                  release_status.namespace, namespace)
+                self._logger.warn(
+                    "Namespace %s doesn't match with previous. Release will be deployed to %s",
+                    release_status.namespace,
+                    namespace,
+                )
 
         if values:
             f = io.StringIO()
@@ -190,21 +214,32 @@ class Tiller(object):
             dry_run=dry_run,
             disable_hooks=disable_hooks,
             values=values,
-            name=name or '',
+            name=name or "",
             wait=wait,
             recreate=recreate,
             reset_values=reset_values,
             reuse_values=reuse_values,
             force=force,
-            description=description)
+            description=description,
+        )
 
-        return stub.UpdateRelease(release_request, self._timeout,
-                                  metadata=self.metadata)
+        return stub.UpdateRelease(
+            release_request, self._timeout, metadata=self.metadata
+        )
 
-    def install_release(self, chart, namespace, dry_run=False,
-                        name=None, values=None, wait=False,
-                        disable_hooks=False, reuse_name=False,
-                        disable_crd_hook=False, description=""):
+    def install_release(
+        self,
+        chart,
+        namespace,
+        dry_run=False,
+        name=None,
+        values=None,
+        wait=False,
+        disable_hooks=False,
+        reuse_name=False,
+        disable_crd_hook=False,
+        description="",
+    ):
         """
         Create a Helm Release
         """
@@ -222,17 +257,18 @@ class Tiller(object):
             chart=chart,
             dry_run=dry_run,
             values=values,
-            name=name or '',
+            name=name or "",
             namespace=namespace,
             wait=wait,
             disable_hooks=disable_hooks,
             reuse_name=reuse_name,
             disable_crd_hook=disable_crd_hook,
-            description=description)
+            description=description,
+        )
 
-        return stub.InstallRelease(release_request,
-                                   self._timeout,
-                                   metadata=self.metadata)
+        return stub.InstallRelease(
+            release_request, self._timeout, metadata=self.metadata
+        )
 
     def uninstall_release(self, release, disable_hooks=False, purge=True):
         """
@@ -243,34 +279,32 @@ class Tiller(object):
         """
 
         stub = ReleaseServiceStub(self._channel)
-        release_request = UninstallReleaseRequest(name=release,
-                                                  disable_hooks=disable_hooks,
-                                                  purge=purge)
-        return stub.UninstallRelease(release_request,
-                                     self._timeout,
-                                     metadata=self.metadata)
+        release_request = UninstallReleaseRequest(
+            name=release, disable_hooks=disable_hooks, purge=purge
+        )
+        return stub.UninstallRelease(
+            release_request, self._timeout, metadata=self.metadata
+        )
 
     def get_release_status(self, release, version=None):
         """
         Gets a release's status
         """
         stub = ReleaseServiceStub(self._channel)
-        status_request = GetReleaseStatusRequest(name=release,
-                                                 version=version)
-        return stub.GetReleaseStatus(status_request,
-                                     self._timeout,
-                                     metadata=self.metadata)
+        status_request = GetReleaseStatusRequest(name=release, version=version)
+        return stub.GetReleaseStatus(
+            status_request, self._timeout, metadata=self.metadata
+        )
 
     def get_release_content(self, release, version=None):
         """
         Gets a release's content
         """
         stub = ReleaseServiceStub(self._channel)
-        status_request = GetReleaseContentRequest(name=release,
-                                                  version=version)
-        return stub.GetReleaseContent(status_request,
-                                      self._timeout,
-                                      metadata=self.metadata)
+        status_request = GetReleaseContentRequest(name=release, version=version)
+        return stub.GetReleaseContent(
+            status_request, self._timeout, metadata=self.metadata
+        )
 
     def chart_cleanup(self, prefix, charts):
         """
@@ -279,6 +313,7 @@ class Tiller(object):
 
         :result - will remove any chart that is not present in yaml
         """
+
         def release_prefix(prefix, chart):
             """
             how to attach prefix to chart
