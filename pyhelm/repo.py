@@ -59,7 +59,7 @@ def _get_from_http(repo_url, file_url, **kwargs):
     index = requests.get(file_url, **kwargs)
     if index.status_code >= 400:
         raise HTTPGetError(file_url, index.status_code, index.text)
-    return index.content
+    return index
 
 
 def _get_from_s3(repo_url, file_url):
@@ -102,7 +102,11 @@ def _get_from_repo(repo_scheme, repo_url, file_url, **kwargs):
     if repo_scheme == "s3":
         return _get_from_s3(repo_url, file_url,)
     elif repo_scheme in ("http", "https"):
-        return _get_from_http(repo_url, file_url, **kwargs)
+        resp =_get_from_http(repo_url, file_url, **kwargs)
+        if resp.status_code == 404:
+            raise VersionError(file_url)
+        else:
+            return resp.content
     else:
         raise SchemeError(repo_scheme.upper())
 
@@ -122,31 +126,17 @@ def from_repo(repo_url, chart, version=None, headers=None):
     """
     _tmp_dir = tempfile.mkdtemp(prefix="pyhelm-")
     repo_scheme = urlparse(repo_url).scheme
-    index = repo_index(repo_url, headers)
+    data = _get_from_repo(
+        repo_scheme, repo_url, "charts/%s-%s.tgz" % (chart, version), stream=True, headers=headers,
+    )
+    if isinstance(data, bytes):
+        fobj = io.BytesIO(data)
+    else:
+        fobj = io.StringIO(data)
 
-    if chart not in index["entries"]:
-        raise ChartError()
-
-    versions = index["entries"][chart]
-
-    if version is not None:
-        versions = [i for i in versions if i["version"] == version]
-    try:
-        metadata = sorted(versions, key=_semver_sorter)[-1]
-        for url in metadata["urls"]:
-            data = _get_from_repo(
-                repo_scheme, repo_url, url, stream=True, headers=headers,
-            )
-            if isinstance(data, bytes):
-                fobj = io.BytesIO(data)
-            else:
-                fobj = io.StringIO(data)
-
-            tar = tarfile.open(mode="r:*", fileobj=fobj)
-            tar.extractall(_tmp_dir)
-            return os.path.join(_tmp_dir, chart)
-    except IndexError:
-        raise VersionError(version)
+    tar = tarfile.open(mode="r:*", fileobj=fobj)
+    tar.extractall(_tmp_dir)
+    return os.path.join(_tmp_dir, chart)
 
 
 def git_clone(repo_url, branch="master", path=""):
