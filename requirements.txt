@@ -1,6 +1,6 @@
 gitpython
-grpcio
-grpcio-tools
+grpcio==1.28.1
+grpcio-tools==1.28.1
 protobuf
 supermutes
 requests
